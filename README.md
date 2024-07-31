@@ -1,5 +1,5 @@
 
-![Chef's Hat Play}](gitImages/chefsHatLogo.png)
+![Chef's Hat Play}](git_images/ChefsHatPlay.png)
 
 ## Chef`s Hat Play
 
@@ -116,6 +116,16 @@ If you want to run more than one Unity Interface, you have to remove the require
 
 
 ### Step 3: Connect remote players with the room
+
+![Chef's Hat Play}](git_images/fill_information.png)
+
+Once the server is runing, and the artificial players are connected to the room, you can open the Chef`s Hat Player unity interface, and fill the important information. If you are running everything local, the server port and server url should be the same as the artificial agents:
+
+```python
+room_url = "localhost"
+room_port = 10000
+```
+
 
 
 ## Use and distribution policy
