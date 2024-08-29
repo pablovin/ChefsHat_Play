@@ -3,13 +3,21 @@ using System.Net.Sockets;
 using System.Net;
 using System.Collections.Generic;
 using System.Text;
-using Unity.VisualScripting;
 using System.Threading.Tasks;
 using CommunicationProtocol;
 using System.Threading;
 
 public class PlayerObject
 {
+    // Position Translation
+    public static Dictionary<int,string> POSITIONS = new Dictionary<int, string>()
+    {
+        {0,"Dishwasher"},
+        {1,"Waiter"},
+        {2,"Souschef"},
+        {3,"Chef"},
+        
+    };
 
     //Message Protocol
     static Dictionary<string,string> MESSAGE_TYPE = new Dictionary<string, string>()
@@ -28,7 +36,8 @@ public class PlayerObject
         {"doSpecialAction", "doSpecialAction"},
         {"specialActionUpdate", "specialActionUpdate"},
         {"exchangeCards", "exchangeCards"},
-        {"updateMatchStart", "updateMatchStart"},
+        {"updateExchangedCards", "updateExchangedCards"},
+        {"updateMatchStart", "updateMatchStart"},                
     };
 
     public static Dictionary<string,string> PLAYER_STATUS = new Dictionary<string, string>(){
@@ -37,6 +46,7 @@ public class PlayerObject
         {"gameOver","gameOver"},      
         {"gameFinished","gameFinished"},      
         {"skiping","skiping"},    
+        {"no_connection","no_connection"},    
     };
 
 
@@ -61,7 +71,28 @@ public class PlayerObject
 
     //Input Forms Create Game
     public static PlayerObject player;
-    
+        
+    public static List<string> GetHighLevelActions()
+    {
+        int maxCardNumber = 11;
+        
+        List<string> highLevelActions = new List<string>();
+
+        for (int cardNumber = 0; cardNumber < maxCardNumber; cardNumber++)
+        {
+            for (int cardQuantity = 0; cardQuantity <= cardNumber; cardQuantity++)
+            {
+                highLevelActions.Add("C" + (cardNumber + 1) + ";Q" + (cardQuantity + 1) + ";J0");
+                highLevelActions.Add("C" + (cardNumber + 1) + ";Q" + (cardQuantity + 1) + ";J1");
+                highLevelActions.Add("C" + (cardNumber + 1) + ";Q" + (cardQuantity + 1) + ";J2");
+            }
+        }
+
+        highLevelActions.Add("C0;Q0;J1");
+        highLevelActions.Add("pass");
+
+        return highLevelActions;
+    }
     public static PlayerObject CreatePlayer(string name)
     {
         player = new PlayerObject();
@@ -75,45 +106,137 @@ public class PlayerObject
         Debug.Log("[Player Object] Listening to game room messages...");              
 
         while (PlayerStatus != PLAYER_STATUS["gameOver"])
-        {
+        {            
+            if (!SocketConnected(Socket))
+            {
+                PlayerStatus = PLAYER_STATUS["no_connection"];                
+                break;
+            }
             var received = await Socket.ReceiveAsync(Bytes, SocketFlags.None); 
             await Task.Run(() =>  ProcessMessage(received));    
 
-            Thread.Sleep(10); ///Wait for 0.01 seconds                        
+            Thread.Sleep(1); ///Wait for 0.001 seconds                        
         }
+    }
+
+    private bool SocketConnected(Socket s)
+    {
+        return true;
+        // // Exit if socket is null
+        // if (s == null)
+        //     return false;
+            
+        // bool part1 = s.Poll(1000, SelectMode.SelectRead);
+        // bool part2 = (s.Available == 0);
+        // if (part1 && part2)
+        //     return false;
+        // else
+        // {
+        //     try
+        //     {
+        //         int sentBytesCount = s.Send(new byte[1], 1, 0);
+        //         return sentBytesCount == 1;
+        //     }
+        //     catch
+        //     {
+        //     return false;
+        //     }
+        // }
     }
 
     public async void SendDiscardAction(int[] action)
     {
+        
+        if (!SocketConnected(Socket))
+            {
+                PlayerStatus = PLAYER_STATUS["no_connection"];
+            }
+                
+        else
+            {
+                var discardMessage = new DiscardAction()
+                {
+                    agent_action = action
+                    
+                };
 
-        var discardMessage = new DiscardAction()
-        {
-            agent_action = action
-            
-        };
 
+                Debug.Log("[Player Object] Sending Discard message to the server:" + discardMessage.GetJSON());
 
-        Debug.Log("[Player Object] Sending Discard message to the server:" + discardMessage.GetJSON());
+                byte[] messageInBytes = Encoding.ASCII.GetBytes(discardMessage.GetJSON()); // System.Text.Json
 
-        byte[] messageInBytes = Encoding.ASCII.GetBytes(discardMessage.GetJSON()); // System.Text.Json
+                int bytesSent = Socket.Send(messageInBytes);
+            }
 
-        int bytesSent = Socket.Send(messageInBytes);
+        
     }
 
+    public async void SendSpecialAction(bool doSpecialAction)
+    {
+        
+        if (!SocketConnected(Socket))
+            {
+                PlayerStatus = PLAYER_STATUS["no_connection"];
+            }
+                
+        else
+            {
+                var discardMessage = new SpecialAction()
+                {
+                    agent_action = doSpecialAction
+                    
+                };
+
+
+                Debug.Log("[Player Object] Sending Do Special Action message to the server:" + discardMessage.GetJSON());
+
+                byte[] messageInBytes = Encoding.ASCII.GetBytes(discardMessage.GetJSON()); // System.Text.Json
+
+                int bytesSent = Socket.Send(messageInBytes);
+            }
+
+        
+    }
+
+
+    public async void SendExchangedCards(int[] cards)
+    {
+        
+        if (!SocketConnected(Socket))
+            {
+                PlayerStatus = PLAYER_STATUS["no_connection"];
+            }
+                
+        else
+            {
+                var discardMessage = new CardsExchanged()
+                {
+                    agent_action = cards
+                    
+                };
+
+
+                Debug.Log("[Player Object] Sending Do Special Action message to the server:" + discardMessage.GetJSON());
+
+                byte[] messageInBytes = Encoding.ASCII.GetBytes(discardMessage.GetJSON()); // System.Text.Json
+
+                int bytesSent = Socket.Send(messageInBytes);
+            }
+
+        
+    }
     private async void ProcessMessage(int receivedMessage)
     {
-            string response = Encoding.ASCII.GetString(Bytes, 0, receivedMessage);            
-            // Debug.Log("[Player Object] Message received: "+response);
+        string response = Encoding.ASCII.GetString(Bytes, 0, receivedMessage);            
 
         if (response.Contains(REQUEST_TYPE["updateMatchStart"]))
         {
-
             PlayerStatus = PLAYER_STATUS["playing"];
 
             MatchStartedMessage roomMessage = JsonUtility.FromJson<MatchStartedMessage>(response);
 
             MessagesQ.Enqueue(roomMessage);
-            Debug.Log("[Player Object] Adding message to the Q: " + roomMessage);
+            Debug.Log("[Player Object] Message Received! Adding message to the Q: " + roomMessage.type);
 
         }
         else if (response.Contains(REQUEST_TYPE["requestAction"]))
@@ -122,7 +245,7 @@ public class PlayerObject
             RequestActionMessage roomMessage = JsonUtility.FromJson<RequestActionMessage>(response);
 
             MessagesQ.Enqueue(roomMessage);
-            Debug.Log("[Player Object] Adding message to the Q: " + roomMessage);
+            Debug.Log("[Player Object] Message Received! Adding message to the Q: " + roomMessage.type);
 
         }
         else if (response.Contains(REQUEST_TYPE["actionUpdate"]))
@@ -130,7 +253,7 @@ public class PlayerObject
             UpdateOthersMessage roomMessage = JsonUtility.FromJson<UpdateOthersMessage>(response);
 
             MessagesQ.Enqueue(roomMessage);
-            Debug.Log("[Player Object] Adding message to the Q: " + roomMessage);
+            Debug.Log("[Player Object] Message Received! Adding message to the Q: " + roomMessage.type+ " Related to my own action.");
 
         }
         else if (response.Contains(REQUEST_TYPE["updateOthers"]))
@@ -138,7 +261,7 @@ public class PlayerObject
             UpdateOthersMessage roomMessage = JsonUtility.FromJson<UpdateOthersMessage>(response);
 
             MessagesQ.Enqueue(roomMessage);
-            Debug.Log("[Player Object] Adding message to the Q: " + roomMessage);
+            Debug.Log("[Player Object] Message Received! Adding message to the Q: " + roomMessage.type+ " Related to the action of player: "+roomMessage.Player_Names[roomMessage.Author_Index] + ".");
 
         }
         else if (response.Contains(REQUEST_TYPE["gameOver"]))
@@ -148,7 +271,7 @@ public class PlayerObject
             GameOver roomMessage = JsonUtility.FromJson<GameOver>(response);
             
             MessagesQ.Enqueue(roomMessage);
-            Debug.Log("[Player Object] Adding message to the Q: " + roomMessage);
+            Debug.Log("[Player Object] Message Received! Adding message to the Q: " + roomMessage.type);
 
         }
         else if (response.Contains(REQUEST_TYPE["matchOver"]))
@@ -156,9 +279,44 @@ public class PlayerObject
             MatchOver roomMessage = JsonUtility.FromJson<MatchOver>(response);
 
             MessagesQ.Enqueue(roomMessage);
-            Debug.Log("[Player Object] Adding message to the Q: " + roomMessage);
+            Debug.Log("[Player Object] Message Received! Adding message to the Q: " + roomMessage.type);
 
         }
+        else if (response.Contains(REQUEST_TYPE["doSpecialAction"]))
+        {
+            DoSpecialAction roomMessage = JsonUtility.FromJson<DoSpecialAction>(response);
+
+            MessagesQ.Enqueue(roomMessage);
+            Debug.Log("[Player Object] Message Received! Adding message to the Q: " + roomMessage.type);
+
+        }
+        else if (response.Contains(REQUEST_TYPE["specialActionUpdate"]))
+        {
+            SpecialActionUpdate roomMessage = JsonUtility.FromJson<SpecialActionUpdate>(response);
+
+            MessagesQ.Enqueue(roomMessage);
+            Debug.Log("[Player Object] Message Received! Adding message to the Q: " + roomMessage.type);
+
+        }
+        else if (response.Contains(REQUEST_TYPE["exchangeCards"]))
+        {
+            ExchangeCards roomMessage = JsonUtility.FromJson<ExchangeCards>(response);
+
+            MessagesQ.Enqueue(roomMessage);
+            Debug.Log("[Player Object] Message Received! Adding message to the Q: " + roomMessage.type);
+
+        }        
+        else if (response.Contains(REQUEST_TYPE["updateExchangedCards"]))
+        {
+            UpdateExchangeCards roomMessage = JsonUtility.FromJson<UpdateExchangeCards>(response);
+
+            MessagesQ.Enqueue(roomMessage);
+            Debug.Log("[Player Object] Message Received! Adding message to the Q: " + roomMessage.type);
+
+        }    
+
+        Debug.Log("[Player Object] Current messages on the Q: " + MessagesQ.Count);
+
 
         }
 
@@ -189,7 +347,8 @@ public class PlayerObject
             var connectionMessage = new ConnectRoomMessage()
             {
                 playerName = Name,
-                password = password
+                password = password,
+                author="Player"
             };
 
         

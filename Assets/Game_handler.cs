@@ -1,24 +1,17 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using CommunicationProtocol;
 using TMPro;
 using UnityEngine;
-using System.Threading;
 using System.Linq;
-using Unity.Burst.CompilerServices;
 using UnityEditor;
-using UnityEngine.UI;
 using LoadLocalResources;
-using UnityEngine.UIElements;
-using UnityEngine.U2D;
-using static Unity.Burst.Intrinsics.X86.Avx;
-using Unity.VisualScripting;
-using static UnityEngine.GraphicsBuffer;
 using System;
-using static System.Net.Mime.MediaTypeNames;
 using UnityEngine.SocialPlatforms.Impl;
-
+using UnityEngine.UIElements;
+using UnityEditor.UI;
+using System.Text.RegularExpressions;
+using UnityEditor.MPE;
 public class PlayerGameState
 {
     public string name;
@@ -33,7 +26,7 @@ public class PlayerGameState
     public string role;
     
     public List<string> possibleActions;
-    public List<int> possibleActionIndices;
+    // public List<int> possibleActionIndices;
 
 }
 
@@ -53,9 +46,22 @@ public class Game_handler : MonoBehaviour
     int donePizzas;
     int currentMatch;
 
+
+    //Audio
+    [SerializeField] AudioSource audioStart;
+    [SerializeField] AudioSource audioDealCard;
+
+    [SerializeField] AudioSource audioPass;
+    [SerializeField] AudioSource audioDiscard;
+    [SerializeField] AudioSource audioMatchOver;
+    [SerializeField] AudioSource audioPizzaReady;
+
     //Message Panel
     [SerializeField] GameObject messagePanel;
     [SerializeField] TMP_Text messageText;
+    [SerializeField] TMP_Text messageTitle;
+    [SerializeField] GameObject errorImage;
+    [SerializeField] GameObject chefImage;
     [SerializeField] GameObject btn_back;
 
 
@@ -124,12 +130,57 @@ public class Game_handler : MonoBehaviour
     [SerializeField] GameObject playerimgPlayer4Card6;
     List<GameObject> player4CardsBoard;
 
-    //Upper Panel 
+    //Lower Panel 
     [SerializeField] TMP_Text upperTxtInformation;
     [SerializeField] GameObject upperPanel;
 
+    [SerializeField] TMP_Text nextPlayerText;
+    [SerializeField] GameObject nextPlayerPanel;
+
+
+
+    //Pizza Panel 
+    [SerializeField] TMP_Text textPizzaPanel;
+    [SerializeField] GameObject pizzaPanel;    
+
+
+    //Handling Cards Panel    
+    [SerializeField] TMP_Text handlingCardsText;   
+    [SerializeField] GameObject handlingCardsPanel;   
+
+    //Handling Cards Panel    
+    [SerializeField] TMP_Text exchangeCardsTxt;   
+    [SerializeField] GameObject exchangeCardsSent1;  
+    [SerializeField] GameObject exchangeCardsSent2;  
+
+    [SerializeField] GameObject exchangeCardsReceived1;  
+    [SerializeField] GameObject exchangeCardsReceived2;      
+    [SerializeField] GameObject exchangeCardsPanel;  
+
+    //EndMatch Panel 
+    [SerializeField] TMP_Text txtChef;
+    [SerializeField] TMP_Text txtSouschef;
+    [SerializeField] TMP_Text txtWaiter;
+    [SerializeField] TMP_Text txtDishwasher;
+    [SerializeField] GameObject endMatchPanel;    
+
+
+    //SpecialAction Panel 
+    [SerializeField] TMP_Text txtTitleSpecialAction;
+    [SerializeField] TMP_Text txtDescriptionSpecialAction;
+    [SerializeField] GameObject specialActionCard;
+    [SerializeField] GameObject specialActionButtonYes;
+    [SerializeField] GameObject specialActionButtonNo;
+    [SerializeField] GameObject specialActionPanel;    
 
     //Board Panel    
+
+    [SerializeField] GameObject imageActivePlayer1;
+
+    [SerializeField] GameObject imageActivePlayer2;
+    [SerializeField] GameObject imageActivePlayer3;
+    [SerializeField] GameObject imageActivePlayer4;
+
     [SerializeField] GameObject cardBoardPosition1;
     [SerializeField] GameObject cardBoardPosition2;
     [SerializeField] GameObject cardBoardPosition3;
@@ -157,7 +208,9 @@ public class Game_handler : MonoBehaviour
 
     // Cards Panel
 
-    [SerializeField] UnityEngine.UI.Button cardsDiscardButton;
+    [SerializeField] GameObject cardsDiscardButton;
+    [SerializeField] GameObject cardsSendCardsButton;
+    [SerializeField] TMP_Text txtCardsPanel;
     [SerializeField] GameObject cardsPanel;
 
     [SerializeField] GameObject cardPass;
@@ -200,6 +253,70 @@ public class Game_handler : MonoBehaviour
     {
         logsPanel.SetActive(!logsPanel.activeSelf);
     }
+
+    public void DoSpecialActionButton()
+    {
+        player.SendSpecialAction(true);
+    }
+
+    public void DoNotSpecialActionButton()
+    {
+        player.SendSpecialAction(false);
+    }
+
+
+    public void SendExchangedCards()
+    {
+        Debug.Log("[Game Handler] Send Exchanged Cards button pressed!");       
+
+        List<int> selectedCards = new List<int>();
+
+        foreach (GameObject card in spritesCardsInHand)
+        {
+            
+            if (card.GetComponent<element_selected>().CardSelected)
+            {
+                string name = card.GetComponent<UnityEngine.UI.Image>().sprite.name.Split("@")[0].Split("_")[1];
+
+                if (name == "Joker")
+                {
+                    selectedCards.Add(12);
+                }
+                else{
+                    selectedCards.Add(int.Parse(name));
+                }
+                
+                Debug.Log("[Game Handler] Selected Card" + name);                
+            }
+        }        
+        
+        Regex regex = new Regex(@"\d+");
+        Match match = regex.Match(txtCardsPanel.text);
+
+        int amount = 0;
+        if (match.Success)
+        {
+            // Convert the matched value to an integer
+            amount = int.Parse(match.Value);
+        }        
+
+        Debug.Log("[Game Handler] Allowed cards: " + amount + ". Selected cards: "+selectedCards.Count);             
+
+        if (selectedCards.Count == amount) {
+                       
+                player.SendExchangedCards(selectedCards.ToArray());
+                cardsPanel.SetActive(false);                
+
+        }
+        else
+        {
+            StartCoroutine(SendMessageUpperPanel("Select "+amount+" card(s)!"));
+        }
+                    
+       
+
+    }
+
 
     public void DiscardCards()
     {
@@ -275,13 +392,14 @@ public class Game_handler : MonoBehaviour
 
             if (validAction)
             {
-
+                
                 string actionTaken = selectedCards[0];
-                int indiceActionTaken = playersGameState[0].possibleActions.IndexOf(actionTaken);
-                int indicePossibleAction = playersGameState[0].possibleActionIndices[indiceActionTaken];
+                int indiceActionTaken = PlayerObject.GetHighLevelActions().IndexOf(actionTaken);
+
+                // int indicePossibleAction = playersGameState[0].possibleActionIndices[indiceActionTaken];
 
                 int[] action = Enumerable.Repeat(0, 200).ToArray();
-                action[indicePossibleAction] = 1;
+                action[indiceActionTaken] = 1;
                 player.SendDiscardAction(action);
 
                 cardsPanel.SetActive(false);
@@ -345,7 +463,110 @@ public class Game_handler : MonoBehaviour
 
     }
 
+
+
+    IEnumerator displaySpecialActionPanel(string title, string description, string specialAction, bool showButton)
+    {
+        specialActionPanel.SetActive(true);
+        txtTitleSpecialAction.SetText(title);
+        txtDescriptionSpecialAction.SetText(description);
+
+        specialActionButtonYes.SetActive(false);
+        specialActionButtonNo.SetActive(false);
+
+
+        specialActionCard.GetComponent<UnityEngine.UI.Image>().sprite = ResourceCards.GetSpecialActionCard(specialAction);
+
+        if (showButton)
+        {
+            specialActionButtonYes.SetActive(true);
+            specialActionButtonNo.SetActive(true);
+        }
+        else{
+            yield return new WaitForSeconds(5);
+            specialActionPanel.SetActive(false);
+        }
+
+        
+        // audioPizzaReady.Play(0);
+        // pizzaPanel.SetActive(true);        
+        // textPizzaPanel.SetText(player+" Made a Pizza!");
+        
+        
+        
+    }
+
+
     /// Screen Update Functions
+    IEnumerator displayPizzaPanel(string player)
+    {
+        audioPizzaReady.Play(0);
+        pizzaPanel.SetActive(true);        
+        textPizzaPanel.SetText(player+" Made a Pizza!");
+        yield return new WaitForSeconds(3);
+        pizzaPanel.SetActive(false);
+        
+    }
+
+    IEnumerator displayHandlingCards(string text)
+    {
+        audioDealCard.Play(0);
+        handlingCardsPanel.SetActive(true);  
+        handlingCardsText.SetText(text);              
+        yield return new WaitForSeconds(5);
+        handlingCardsPanel.SetActive(false);
+        
+    }
+    IEnumerator displayExchangeCard(string text, int[] cardsReceived, int[] cardsSent)
+    {
+        // audioDealCard.Play(0);
+        exchangeCardsPanel.SetActive(true);  
+        exchangeCardsTxt.SetText(text);   
+        
+        
+        // [SerializeField] GameObject exchangeCardsSent1;  
+        // [SerializeField] GameObject exchangeCardsSent2;  
+
+        // [SerializeField] GameObject exchangeCardsReceived1;  
+        // [SerializeField] GameObject exchangeCardsReceived2;   
+    
+        exchangeCardsSent1.GetComponent<UnityEngine.UI.Image>().sprite = ResourceCards.GetSprite(cardsSent[0]);
+        if (cardsReceived.Count()>1) exchangeCardsSent2.GetComponent<UnityEngine.UI.Image>().sprite = ResourceCards.GetSprite(cardsSent[1]);
+
+        exchangeCardsReceived1.GetComponent<UnityEngine.UI.Image>().sprite = ResourceCards.GetSprite(cardsReceived[0]);
+        if (cardsReceived.Count()>1) exchangeCardsReceived2.GetComponent<UnityEngine.UI.Image>().sprite = ResourceCards.GetSprite(cardsReceived[1]);
+
+        yield return new WaitForSeconds(5);
+        exchangeCardsPanel.SetActive(false);
+        
+    }    
+    IEnumerator displayEndMatchPanel(Dictionary<string,string> current_roles)
+    {
+        StartCoroutine(SendMessageUpperPanel("Match Over! Updating Score Board!"));
+        updateLog("[System]", "Match over!");
+
+        
+        endMatchPanel.SetActive(true);        
+        audioMatchOver.Play(0);
+        txtChef.SetText(current_roles.FirstOrDefault(x => x.Value == "Chef").Key+" (+3 points)");
+        txtSouschef.SetText(current_roles.FirstOrDefault(x => x.Value == "Souschef").Key+"(+2 points)");
+        txtWaiter.SetText(current_roles.FirstOrDefault(x => x.Value == "Waiter").Key+"(+1 points)");
+        txtDishwasher.SetText(current_roles.FirstOrDefault(x => x.Value == "Dishwasher").Key+"(+0 points)");
+        yield return new WaitForSeconds(10);
+        endMatchPanel.SetActive(false);
+        
+    }
+
+    private void updateMessagePanel(string title, string text, bool show_error_image, bool show_button)
+    {
+        messagePanel.SetActive(true);
+        messageTitle.SetText(title);
+        messageText.SetText(text);
+        chefImage.SetActive(!show_error_image);
+        errorImage.SetActive(show_error_image);
+        btn_back.SetActive(show_button);
+
+    }
 
 
     private void updateLog(string author, string message)
@@ -356,13 +577,26 @@ public class Game_handler : MonoBehaviour
         }
         logsTxt.text = logsTxt.text+"\n"+"["+author+"]"+" "+message;
     }
+
+     IEnumerator SendMessageNextPlayer(string playerName)
+    {        
+
+        nextPlayerPanel.SetActive(true);
+        nextPlayerText.text = "Waiting for: "+playerName;
+        yield return new WaitForSeconds(3);
+        nextPlayerPanel.SetActive(false);
+
+    }
+
+
     IEnumerator SendMessageUpperPanel(string message)
     {
 
-        Debug.Log("[Game Handler] Sending a message!");
+        // Debug.Log("[Game Handler] Sending a message!");
 
         upperPanel.SetActive(true);
         upperTxtInformation.text = message;
+        
         yield return new WaitForSeconds(3);
         upperPanel.SetActive(false);
 
@@ -394,16 +628,27 @@ public class Game_handler : MonoBehaviour
         print ("[Game Handler] Score board updated!");        
     }
 
-
-    private void updateBoard(int[] cardsInBoard)
+    private void clearBoard()
     {
-
-        var positiveCardsInBoard = cardsInBoard.Where(n => n > 0);
-
         foreach (GameObject cardPosition in spritesCardsInBoard)
         {
             cardPosition.SetActive(false);
         }
+    }
+    IEnumerator updateBoard(int[] cardsInBoard)
+    {
+
+        var positiveCardsInBoard = cardsInBoard.Where(n => n > 0);        
+        
+        string message = "";
+        foreach(int card in positiveCardsInBoard)
+        {
+            message+=", "+card;            
+        }
+
+        Debug.Log("Card in board: " +message);
+        
+        clearBoard();
 
         if (positiveCardsInBoard.Count()>0 && positiveCardsInBoard.ElementAt(0)!=13)
         { 
@@ -416,15 +661,30 @@ public class Game_handler : MonoBehaviour
 
                 thisCardPosition.SetActive(true);
 
-            }
-        }
+                audioDiscard.Play(0);
+                yield return new WaitForSeconds(0.5f);
 
-        print("[Game Handler] Game Board updated!");
+
+            }        
+
+        }
 
     }
     
     private void setActivePlayer(int activePlayer)
-    {
+    {   
+
+        StartCoroutine(SendMessageNextPlayer(playersGameState[activePlayer].name));   
+        imageActivePlayer1.SetActive(false);
+        imageActivePlayer2.SetActive(false);
+        imageActivePlayer3.SetActive(false);
+        imageActivePlayer4.SetActive(false);
+
+
+        if (activePlayer==0) imageActivePlayer1.SetActive(true);
+        if (activePlayer==1) imageActivePlayer2.SetActive(true);
+        if (activePlayer==2) imageActivePlayer3.SetActive(true);
+        if (activePlayer==3) imageActivePlayer4.SetActive(true);
 
         //Iterate over all positions, making them transparent. If the active player is that position, does not make it transparent.
 
@@ -520,11 +780,15 @@ public class Game_handler : MonoBehaviour
 
         //    cardPosition.GetComponent<UnityEngine.UI.Image>().color = tmp;
         //}
-        print("[Game Handler] Active Player set to:" + activePlayer);
+        Debug.Log("[Game Handler] Active Player set to:" + activePlayer);
+
+        
+        
     }
 
     private void updatePlayersInformation()
     {
+         
         //Update the information on the players fields
 
         playerTxtPlayer1Name.text = playersGameState[0].name;
@@ -533,13 +797,14 @@ public class Game_handler : MonoBehaviour
         bool activePassPlayer1 = false;
         if (playersGameState[0].passed) activePassPlayer1 = true;        
         cardBoardPassPosition1.SetActive(activePassPlayer1);
-
+        Debug.Log("Card Pass player1: "+activePassPlayer1);
 
         playerTxtPlayer2Name.text = playersGameState[1].name;
         playerTxtPlayer2Cards.text = "Ingredients: " + playersGameState[1].cardsAtHand.ToString();
         bool activePassPlayer2 = false;
         if (playersGameState[1].passed) activePassPlayer2 = true;
         cardBoardPassPosition2.SetActive(activePassPlayer2);
+        Debug.Log("Card Pass player2: "+activePassPlayer2);
 
 
         playerTxtPlayer3Name.text = playersGameState[2].name;
@@ -547,20 +812,22 @@ public class Game_handler : MonoBehaviour
         bool activePassPlayer3 = false;
         if (playersGameState[2].passed) activePassPlayer3 = true;
         cardBoardPassPosition3.SetActive(activePassPlayer3);
+        Debug.Log("Card Pass player3: "+activePassPlayer3);
+
 
         playerTxtPlayer4Name.text = playersGameState[3].name;
         playerTxtPlayer4Cards.text = "Ingredients: " + playersGameState[3].cardsAtHand.ToString();
-
         bool activePassPlayer4 = false;
         if (playersGameState[3].passed) activePassPlayer4 = true;
         cardBoardPassPosition4.SetActive(activePassPlayer4);
+        Debug.Log("Card Pass player4: "+activePassPlayer4);
 
-        print ("[Game Handler] Player info updated!");        
+        Debug.Log("[Game Handler] Player info updated!");        
 
     }
     
 
-    private void updateCardsInHand()
+    private void updateCardsInHand(bool show_pass)
     {
        
         foreach (GameObject cardPosition in spritesCardsInHand)
@@ -579,6 +846,14 @@ public class Game_handler : MonoBehaviour
         cardPass.GetComponent<UnityEngine.UI.Image>().color = tmpPass;
         cardPass.GetComponent<element_selected>().CardSelected = false;
 
+        if (!show_pass)
+        {
+            cardPass.SetActive(false);
+        }
+        else{
+            cardPass.SetActive(true);
+        }
+
         List<int> cardsInHand = playersGameState[0].cards;
 
         var positiveCardsInBoard = cardsInHand.Where(n => n > 0);
@@ -591,31 +866,38 @@ public class Game_handler : MonoBehaviour
 
             thisCardPosition.GetComponent<UnityEngine.UI.Image>().sprite = ResourceCards.GetSprite(thisCardValue);
 
-            thisCardPosition.SetActive(true);
-            
-
+            thisCardPosition.SetActive(true);            
         }
 
-        print ("[Game Handler] Cards at hand updated...");      
+        Debug.Log("[Game Handler] Cards at hand updated...");      
          
     }
 
 
-    IEnumerator OpenCardsPanel(bool discardButton=false)
+    IEnumerator OpenCardsPanel(bool show_pass, bool discardButton=false, bool sendCardsButton = false, string text="")
     {
+        txtCardsPanel.SetText(text);
+        cardsSendCardsButton.SetActive(false);
+        cardsDiscardButton.SetActive(false);
 
-        updateCardsInHand();
-        cardsPanel.SetActive(true);
-
-        if (discardButton)
+        if (sendCardsButton)
         {
-            cardsDiscardButton.gameObject.SetActive(true);
-        }
-        else{
-            cardsDiscardButton.gameObject.SetActive(false);
+            cardsSendCardsButton.SetActive(true);            
         }
         
-        print ("[Game Handler] Cards panel opened...");              
+        if (discardButton)
+        {
+            cardsDiscardButton.SetActive(true);
+        }
+
+        updateCardsInHand(show_pass);
+
+        cardsPanel.SetActive(true);
+
+        
+
+        
+        Debug.Log("[Game Handler] Cards panel opened...");              
 
         yield return StartCoroutine(SendMessageUpperPanel("Your turn!"));  
         
@@ -627,18 +909,17 @@ public class Game_handler : MonoBehaviour
             
             if (message is MatchStartedMessage)
             {
-                MatchStartedMessage messageStartMessage = (MatchStartedMessage)message;
+                MatchStartedMessage messageStartMessage = (MatchStartedMessage)message;              
+                Debug.Log("[Game Handler] Started Game Message Received! Players: "+ messageStartMessage.starting_player);
 
-                print ("[Game Handler] Processing the match started message...");
-                
-                messageText.SetText("Everyone connected! Starting the Game...");            
+                updateMessagePanel("All set!", "All players connected, let`s start the game!", false, false);
 
-                yield return new WaitForSeconds(2);   
+                audioStart.Play(0);
 
+                yield return new WaitForSeconds(2);
+                // messageText.SetText("Everyone connected! Starting the Game...");                            
                 messagePanel.SetActive(false);
-
-                print("[Game Handler] Starting the game with: "+ messageStartMessage.starting_player);
-
+                
                 yield return StartCoroutine(StartGame(messageStartMessage.players, messageStartMessage.cards, messageStartMessage.starting_player));
 
                 int activePlayer = 0;
@@ -651,139 +932,294 @@ public class Game_handler : MonoBehaviour
                         }
                 }
                 setActivePlayer(activePlayer);
-                yield return new WaitForSeconds(2);
+                yield return new WaitForSeconds(1);
 
         }
             else if (message is UpdateOthersMessage)
             {
                 UpdateOthersMessage messageUpdateOthers = (UpdateOthersMessage)message;
+                                
+                string playerName = originalPlayersOrders[messageUpdateOthers.Author_Index];
+                
+                Debug.Log("[Game Handler] Processing Update Others message based on the action of: "+ playerName);
 
-                print("[Game Handler] Processing the update others message...");
-
-                string playerName = originalPlayersOrders[messageUpdateOthers.thisPlayer];
-                string nextPlayer = originalPlayersOrders[messageUpdateOthers.currentPlayer];
+                string nextPlayer = originalPlayersOrders[messageUpdateOthers.Next_Player];
 
                 int playerIndex = playersGameState.FindIndex(p => p.name == playerName);
                 int nextPlayerIndex = playersGameState.FindIndex(p => p.name == nextPlayer);
 
-                int[] scores = messageUpdateOthers.score;
+                // Dictionary<string,int> scores = messageUpdateOthers.Game_Score;
                                 
-            //print("[Game Handler] Action size: "+ messageUpdateOthers.action.Count());
-
-                bool isPass = messageUpdateOthers.action[199] == 1;
-
-                playersGameState[playerIndex].passed = isPass;
-
-                playersGameState[playerIndex].cardsAtHand = messageUpdateOthers.RemainingCardsPerPlayer[messageUpdateOthers.thisPlayer];
-
+                // print("[Game Handler] Action size: "+ messageUpdateOthers.action.Count());                
                 //Update user action!
-                string userAction = messageUpdateOthers.lastActionTypes[messageUpdateOthers.thisPlayer];
+                
+                string userAction = messageUpdateOthers.Action_Decoded;  
+                bool isPass = userAction == "pass";
+                // bool isPass = userAction == "PASS";                                
 
+                // print("[Game Handler] Is Pass: "+ isPass);
+
+                // foreach (var kvp in messageUpdateOthers.Cards_Per_Player)
+                // {
+                //     Debug.Log($"Player: {kvp.Key}, Cards Value: {kvp.Value}");
+                // }
+                playersGameState[playerIndex].passed = isPass;
+                playersGameState[playerIndex].cardsAtHand = messageUpdateOthers.Cards_Per_Player[messageUpdateOthers.Author_Index];
+
+                // foreach (int boardBefore in messageUpdateOthers.Board_After)
+                // {
+                //     Debug.Log("Board Before: " + boardBefore);
+                // }
+                // Debug.Log("---------------------");
+
+                // foreach (int boardBefore in messageUpdateOthers.Board_Before)
+                // {
+                //     Debug.Log("Board After: " +boardBefore);
+                // }
                 
+                Debug.Log("Action from: "+playerIndex+" - Is PAss: " + isPass);
+
+                updatePlayersInformation();    
                 
-                updateBoard(messageUpdateOthers.board);
+                if (isPass)
+                {                 
+                    audioPass.Play(0);                    
+                    yield return new WaitForSeconds(0.5f);
+                }                
+                else
+                {                                           
+                    yield return updateBoard(messageUpdateOthers.Board_After);  
+                }                
+                
                 yield return StartCoroutine(SendMessageUpperPanel(playerName + " did "+ userAction));
                 updateLog(playerName, "Did "+ userAction);
 
-                yield return new WaitForSeconds(1);
+                // yield return new WaitForSeconds(1);
 
-                if (playerName == player.Name)
+                if (playersGameState[0].cardsAtHand == 0)                
                 {
                     btn_skip.SetActive(true);                    
                 }
                 
-                if (messageUpdateOthers.isPizzaReady)
+                UpdateScoreBoard();
+                 
+
+                if (messageUpdateOthers.Is_Pizza)
                 {
-                    donePizzas = donePizzas+1;
+                    donePizzas+=1;
+                    string pizzaAuthor = originalPlayersOrders[messageUpdateOthers.Pizza_Author];
+                    
                     foreach (PlayerGameState playerGameState in playersGameState) {
                         playerGameState.passed = false;                        
                     }
+                    Debug.Log("[Game Handler] Player "+ pizzaAuthor + " Declared Pizza!");                    
+                    updateLog(pizzaAuthor, "I Made a Pizza!");
+                    yield return StartCoroutine(SendMessageUpperPanel(pizzaAuthor + " Declared Pizza!"));
+                    yield return StartCoroutine(displayPizzaPanel(pizzaAuthor));
 
-                    yield return StartCoroutine(SendMessageUpperPanel(nextPlayer + " Declared Pizza!"));
-                    updateLog(nextPlayer, "I Made a Pizza!");               
+                    clearBoard();               
                                 
                 }
 
-                UpdateScoreBoard();
-                updatePlayersInformation();           
-                setActivePlayer(nextPlayerIndex);
-                yield return StartCoroutine(SendMessageUpperPanel("Next Player: " + nextPlayer));
-                updateLog("System", "Next player: " + nextPlayer);
-                yield return new WaitForSeconds(2);
+                updatePlayersInformation();     
+
+                setActivePlayer(nextPlayerIndex);                       
+                updateLog("System", "Next player: " + nextPlayer);                
+                yield return new WaitForSeconds(1);
 
         }
         else if (message is RequestActionMessage)
             {
                  RequestActionMessage messageRequestAction = (RequestActionMessage)message;
-                 print ("[Game Handler] Processing the request action message...");
+                 print ("[Game Handler] Processing message requesting a discard action!");
                                 
                  int[] cardsInHand = messageRequestAction.observations[11..28].Select(x => (int)(x * 13)).ToArray();
-                 int[] possibleActionsVector = messageRequestAction.observations[28..228].Select(f => (int)f).ToArray(); ;
+                 int[] possibleActionsVector = messageRequestAction.observations[28..228].Select(f => (int)f).ToArray();
+
                  string[] possibleActions = messageRequestAction.possibleActionsDecoded;
 
-                 var possibleActionIndices = Enumerable.Range(0, possibleActionsVector.Length)
-                                .Where(i => possibleActionsVector[i] == 1)
-                                .ToList();
+                //  var possibleActionIndices = Enumerable.Range(0, possibleActionsVector.Length)
+                //                 .Where(i => possibleActionsVector[i] == 1)
+                //                 .ToList();
 
                 playersGameState[0].cards = cardsInHand.ToList<int>();
                 playersGameState[0].cardsAtHand = cardsInHand.Count();
                 playersGameState[0].possibleActions = possibleActions.ToList<string>();
-            playersGameState[0].possibleActionIndices = possibleActionIndices;
+                // playersGameState[0].possibleActionIndices = possibleActionIndices;
 
-            yield return StartCoroutine(OpenCardsPanel(true));                
+                
+
+                yield return StartCoroutine(OpenCardsPanel(true, true, false, "Cards In My Hand"));                
 
         }        
         else if (message is MatchOver)
         {
-            MatchOver messageMatchOver = (MatchOver)message;
-            print("[Game Handler] Processing the request action message...");
+                MatchOver messageMatchOver = (MatchOver)message;            
 
-            updateLog("[System]", "Match over!");
-            yield return StartCoroutine(SendMessageUpperPanel("Match Over!"));
-            yield return new WaitForSeconds(1);
-            openCloseScore(true);
-            yield return new WaitForSeconds(2);
-
-            int[] scores = messageMatchOver.score;
-            string[] roles = messageMatchOver.currentRoles;
-            playedMatches = messageMatchOver.matches;
-            currentMatch = playedMatches+1;
-
-            // foreach (int score in scores) 
-            // {
-            //     print("Score: " + score);
-            // }
-
-            // foreach (string role in roles)
-            // {
-            //     print("Role: " + role);
-            // }
-            
-
-            string readingMessage = player.PlayerStatus;
-            UpdateScore(scores);
-            UpdateScoreBoard();
-
-            if(readingMessage != PlayerObject.PLAYER_STATUS["gameOver"])
-            {
-                StartMatch(scores, roles);
-                yield return new WaitForSeconds(2);
-
-                openCloseScore(false);
-                yield return StartCoroutine(SendMessageUpperPanel("Starting Match Number "+ currentMatch));
                 
-                updateLog("[System]", "New match!");          
-            }
+                // Dictionary<string,int> match_score = messageMatchOver.Match_Score;
+                // Dictionary<string,int> acumulate_score = messageMatchOver.Game_Score;
+                // Dictionary<string,string> current_roles = messageMatchOver.Current_Roles;
 
+                string[] players_names = messageMatchOver.Player_Names;
+
+                int[] match_score_message = messageMatchOver.Match_Score;
+                int[] acumulate_score_message = messageMatchOver.Game_Score;
+                string[] current_roles_message = messageMatchOver.Current_Roles;
+                
+                Dictionary<string,int> match_score  = new Dictionary<string,int>();
+                for (int i=0; i<4;i++){ match_score.Add(players_names[i], match_score_message[i]);}
+
+                Dictionary<string,int> acumulate_score  = new Dictionary<string,int>();
+                for (int i=0; i<4;i++){ acumulate_score.Add(players_names[i], acumulate_score_message[i]);}
+                
+                Dictionary<string,string> current_roles  = new Dictionary<string,string>();
+                for (int i=0; i<4;i++){ current_roles.Add(players_names[i], current_roles_message[i]);}
+
+                              
+                playedMatches = messageMatchOver.Matches;                                
+                
+                StartCoroutine(EndMatch(acumulate_score, current_roles));                        
+
+                // updateMessagePanel("Match Over!", scoreMessage, false, false);
+                // yield return new WaitForSeconds(5);
+
+                // yield return StartCoroutine(SendMessageUpperPanel("Match Over! Updating Score Board!"));
+                // yield return new WaitForSeconds(1);
+                // openCloseScore(true);                
+                yield return new WaitForSeconds(5);
+                
+                string readingMessage = player.PlayerStatus;
+                // UpdateScore(scores);
+                // UpdateScoreBoard();
+
+                if(readingMessage != PlayerObject.PLAYER_STATUS["gameOver"])
+                {   
+
+                    // string chef = originalPlayersOrders[Array.IndexOf(match_score, 3)];
+                    // string sousChef = originalPlayersOrders[Array.IndexOf(match_score, 2)];
+                    // string waiter = originalPlayersOrders[Array.IndexOf(match_score, 1)];
+                    // string dishwasher = originalPlayersOrders[Array.IndexOf(match_score, 0)];
+                    
+                    // Debug.Log("Dishwasher: " + dishwasher);
+                    // Debug.Log("Waiter: " + waiter);
+                    // Debug.Log("Souschef: " + sousChef);
+                    // Debug.Log("Chef: " + chef);
+
+                    string messageText = "";
+
+                    string thisPlayerRole = current_roles[playersGameState[0].name];
+
+                    if (thisPlayerRole == PlayerObject.POSITIONS[0] )
+                    {
+                        messageText ="Cards Shuffled! As you are the Dishwasher, you had to give two of your lowest card to the Chef!";
+                    }
+                    else if (thisPlayerRole == PlayerObject.POSITIONS[1])
+                    {
+                        messageText ="Cards Shuffled! As you are the Waiter, you had to give your lowest card to the Souschef!";
+                    }
+                    else if (thisPlayerRole == PlayerObject.POSITIONS[2] ){
+                        messageText ="Cards Shuffled! As you are the SousChef, you can choose which cards to give to the Waiter!";
+                    }else
+                    {
+                        messageText ="Cards Shuffled! As you are the Chef, you can choose which cards to give to the Dishwasher!";
+                    }
+
+                    yield return StartCoroutine(displayHandlingCards(messageText));    
+                    
+                    yield return StartMatch(acumulate_score, current_roles);                
+                    yield return new WaitForSeconds(1);
+
+                    openCloseScore(false);                
+                    
+                    updateLog("[System]", "New match!");          
+                }
+
+        }
+        
+        else if (message is DoSpecialAction)
+        {
+            DoSpecialAction messageMatchOver = (DoSpecialAction)message;                            
+            
+            string special_action = messageMatchOver.special_action;    
+
+             yield return StartCoroutine( displaySpecialActionPanel("Special Action", "After receiving your cards, you have two jokers in your hand! Do You want to do the following special action:", special_action,true)   );                                    
+        }
+        else if (message is SpecialActionUpdate)
+        {
+            SpecialActionUpdate messageMatchOver = (SpecialActionUpdate)message;                            
+            
+            string special_action = messageMatchOver.special_action;    
+            int special_action_player = messageMatchOver.player;    
+
+            yield return StartCoroutine( displaySpecialActionPanel("Special Action", originalPlayersOrders[special_action_player] + " declared this specil action: ", special_action,false));                                    
+        }
+        else if (message is ExchangeCards)
+        {
+            ExchangeCards messageMatchOver = (ExchangeCards)message;                            
+            
+            int[] cards = messageMatchOver.cards;    
+            int amount = messageMatchOver.amount;    
+
+            string sendTo = "";
+
+            if (amount==1) sendTo ="Waiter";
+            else sendTo="Dishwasher";
+            playersGameState[0].cards = cards.ToList<int>();            
+
+            yield return StartCoroutine(OpenCardsPanel(false, false, true, "Select "+amount+" card(s) to send to the "+sendTo));         
+
+            // yield return StartCoroutine( displaySpecialActionPanel("Special Action", originalPlayersOrders[special_action_player] + " declared this specil action: ", special_action,false));                                    
+        }
+        else if (message is UpdateExchangeCards)
+        {
+            UpdateExchangeCards messageMatchOver = (UpdateExchangeCards)message;                            
+            
+            int[] cards_received = messageMatchOver.cards_received;    
+            int[] cards_sent = messageMatchOver.cards_sent;     
+
+            string playerRole = playersGameState[0].role;
+
+            string message_exchangePanel = "Card Exchange! \n";
+            if (playerRole == PlayerObject.POSITIONS[0])
+            {
+                message_exchangePanel = "As you are the Dishwasher, you have to give two of your most precious ingredients to the Chef! And you received two cards from the Chef!";
+            }else if (playerRole == PlayerObject.POSITIONS[1])
+            {
+                message_exchangePanel = "As you are the Waiter, you have to give one of your most precious ingredients to the Souschef! And you received one card from the Souschef!";
+            }else if (playerRole == PlayerObject.POSITIONS[2])
+            {
+                message_exchangePanel = "As you are the Souschef, you chose one card to give to the Waiter! And you received the most precious ingridient from the Waiter!";
+            }else if (playerRole == PlayerObject.POSITIONS[3])
+            {
+                message_exchangePanel = "As you are the Chef, you chose two cards to give to the Dishwasher! And you received two of the most precious ingridient from the Dishwasher!";
+            }
+            
+            yield return StartCoroutine(displayExchangeCard(message_exchangePanel, cards_received, cards_sent) );         
+
+                     
+
+            // string sendTo = "";
+
+            // if (amount==1) sendTo ="Waiter";
+            // else sendTo="Dishwasher";
+            // playersGameState[0].cards = cards.ToList<int>();            
+
+            // yield return StartCoroutine(OpenCardsPanel(false, true, "Select "+amount+" card(s) to send to the "+sendTo));         
+
+            // yield return StartCoroutine( displaySpecialActionPanel("Special Action", originalPlayersOrders[special_action_player] + " declared this specil action: ", special_action,false));                                    
         }
         else if (message is GameOver)
         {
 
-            Debug.Log("[Game Handler] Game Over...");            
+            Debug.Log("[Game Handler] Processing Game Over message!");            
             updateLog("[System]", "Game over!");
 
-            messageText.SetText("End of the Game!");
+            // messageText.SetText("End of the Game!");
+
+
             messagePanel.SetActive(true);        
+            updateMessagePanel("Congratulations!","Your game is over, but this is not the end! You can always play again and try to gain the Chef`s Hat!", false, true);
 
             yield return new WaitForSeconds(2);            
 
@@ -812,28 +1248,46 @@ public class Game_handler : MonoBehaviour
     }
         
         IEnumerator ReadPlayerQ()
-    {        
-        string readingMessage = player.PlayerStatus;
-        while(readingMessage != PlayerObject.PLAYER_STATUS["gameFinished"])
-        {
-            //   print ("[Game Handler] Current Player`s Message Q: "+player.MessagesQ.Count);
-              if (player.MessagesQ.Count > 0)
-                {
-                    var currentMessage = player.MessagesQ.Dequeue();
-
-                    print ("[Game Handler] Message found: "+currentMessage);
-                                        
-                    yield return StartCoroutine(ProcessMessage(currentMessage));                
-                }        
-
-                yield return new WaitForSeconds(1);    
-        }
+    {      
         
+        string currentStatus = PlayerObject.PLAYER_STATUS["gameFinished"];
+
+         try{
+                currentStatus = player.PlayerStatus;
+            }catch (Exception e)
+            {
+                updateMessagePanel("Error!!",e.Message, true, true);
+                
+            }
+        
+            while(currentStatus != PlayerObject.PLAYER_STATUS["gameFinished"])
+            {
+
+                if (player.PlayerStatus == PlayerObject.PLAYER_STATUS["no_connection"])
+                {
+                    //TODO ADD CONNECTION ERROR MESSAGE!
+                    updateMessagePanel("Attention!!","The server is not responding! Please start the game again and contact the game host!", true, true);
+                    break;
+                }
+                //   print ("[Game Handler] Current Player`s Message Q: "+player.MessagesQ.Count);
+                if (player.MessagesQ.Count > 0)
+                    {
+                        var currentMessage = player.MessagesQ.Dequeue();
+
+                        print ("[Game Handler] Message found: "+currentMessage);
+                                            
+                        yield return StartCoroutine(ProcessMessage(currentMessage));                
+                    }        
+
+                    yield return new WaitForSeconds(0.01F);    
+            }
+
                
     }
 
 
     //Game State Functions
+
 
     public static List<T> ReorderList<T>(List<T> originalList, T startingItem)
     {
@@ -856,56 +1310,119 @@ public class Game_handler : MonoBehaviour
         return orderedList;
     }
 
-    public void UpdateScore(int[] scores)
-    {
-        //Update the Gamestates
-        for (int indexServer = 0; indexServer < scores.Count(); indexServer++)
+    public void UpdateScore(Dictionary<string,int> scores)
+    {   
+        foreach (PlayerGameState player in playersGameState)
         {
-            string thisPlayerName = originalPlayersOrders[indexServer];
-
-            int playerIndex = playersGameState.FindIndex(p => p.name == thisPlayerName);            
-            playersGameState[playerIndex].score = scores[indexServer];                        
-
+            player.score = scores[player.name];
         }
+
+        // //Update the Gamestates
+        // for (int indexServer = 0; indexServer < scores.Count(); indexServer++)
+        // {
+        //     string thisPlayerName = originalPlayersOrders[indexServer];
+
+        //     int playerIndex = playersGameState.FindIndex(p => p.name == thisPlayerName);            
+        //     playersGameState[playerIndex].score = scores[indexServer];                        
+
+        // }
 
     }
 
-    public void UpdateRoles(string[] roles)
-    {
-          //Update the Gamestates
-        for (int indexServer = 0; indexServer < roles.Count(); indexServer++)
+    public void UpdateRoles(Dictionary<string,string> roles)
+    {        
+        
+        List<GameObject> spritesPosition = new List<GameObject>
         {
-            string thisPlayerName = originalPlayersOrders[indexServer];
+            cardBoardRolePosition1,
+            cardBoardRolePosition2,
+            cardBoardRolePosition3,
+            cardBoardRolePosition4
+        };
 
-            int playerIndex = playersGameState.FindIndex(p => p.name == thisPlayerName);
-            if (roles.Count()>0) { playersGameState[playerIndex].role = roles[indexServer]; }
-                                    
+        foreach (PlayerGameState player in playersGameState)
+        {
+            player.role = roles[player.name];
 
+            spritesPosition[player.position].GetComponent<UnityEngine.UI.Image>().sprite = ResourceCards.GetRoleCard(player.role);
+            spritesPosition[player.position].SetActive(true);
         }
-    }
-    
-    public void StartMatch(int[] scores, string[] roles)
-    {
 
-        print("[Game Handler] Starting the match! Updating all the gamestates...");
+        //   //Update the Gamestates
+        // for (int indexServer = 0; indexServer < scores.Count(); indexServer++)
+        // {
+        //     string thisPlayerName = originalPlayersOrders[indexServer];
+
+        //     int playerIndex = playersGameState.FindIndex(p => p.name == thisPlayerName);
+        //     if (scores.Count()>0) { playersGameState[playerIndex].role = PlayerObject.POSITIONS[scores[indexServer]]; }
+
+
+        //     if (indexServer == 0)cardBoardRolePosition1.GetComponent<UnityEngine.UI.Image>().sprite = ResourceCards.GetRoleCard(scores[indexServer]);
+        //     if (indexServer == 1)cardBoardRolePosition2.GetComponent<UnityEngine.UI.Image>().sprite = ResourceCards.GetRoleCard(scores[indexServer]);
+        //     if (indexServer == 2)cardBoardRolePosition3.GetComponent<UnityEngine.UI.Image>().sprite = ResourceCards.GetRoleCard(scores[indexServer]);
+        //     if (indexServer == 3)cardBoardRolePosition4.GetComponent<UnityEngine.UI.Image>().sprite = ResourceCards.GetRoleCard(scores[indexServer]);                                                                            
+
+        // }
+    }
+     IEnumerator EndMatch(Dictionary<string,int> acumulated_score,Dictionary<string,string> current_roles)
+        {
+        
+            openCloseScore(true);
+            UpdateScore(acumulated_score);
+            UpdateRoles(current_roles);
+            UpdateScoreBoard(); 
+
+            yield return StartCoroutine(displayEndMatchPanel(current_roles));                        
+
+            // updateMessagePanel("Match Over!", scoreMessage, false, false);
+            // yield return new WaitForSeconds(5);
+
+            // yield return new WaitForSeconds(1);
+            
+            // yield return new WaitForSeconds(3);
+
+            
+                       
+            
+        }
+
+    IEnumerator StartMatch(Dictionary<string,int> acumulated_score, Dictionary<string,string> current_roles)
+    {
+        
+        yield return StartCoroutine(SendMessageUpperPanel("Dealing all the cards!"));                     
+        // yield return new WaitForSeconds(2);
+
+
+        Debug.Log("[Game Handler] Starting the match! Updating all the gamestates...");
 
         donePizzas = 0;
-        currentMatch = 1;
+        currentMatch = playedMatches+1;
         
-        UpdateScore(scores);
-        UpdateRoles(roles);
+        UpdateScore(acumulated_score);
+        UpdateRoles(current_roles);
         //Update the Gamestates
-        for (int indexServer = 0; indexServer < scores.Count(); indexServer++)
+
+        foreach( PlayerGameState player in playersGameState)
         {
-            string thisPlayerName = originalPlayersOrders[indexServer];
-
-            int playerIndex = playersGameState.FindIndex(p => p.name == thisPlayerName);          
-            playersGameState[playerIndex].cardsAtHand = 17;
-
+            player.cardsAtHand = 17;
         }
 
-        //Update the Scores
+        // for (int indexServer = 0; indexServer < scores.Count(); indexServer++)
+        // {
+        //     string thisPlayerName = originalPlayersOrders[indexServer];
+
+        //     int playerIndex = playersGameState.FindIndex(p => p.name == thisPlayerName);          
+        //     playersGameState[playerIndex].cardsAtHand = 17;
+
+        // }
+
+        //Update the Scores        
         UpdateScoreBoard();
+
+        yield return StartCoroutine(SendMessageUpperPanel("Starting Match Number "+ currentMatch));
+
+        
+
 
 
 
@@ -915,9 +1432,10 @@ public class Game_handler : MonoBehaviour
     IEnumerator StartGame(string[] playerNames, int[] cardsInHand, string startingPlayer)
     {
 
-         print ("[Game Handler] Starting the game! Reseting all the internal states...");
+         Debug.Log("[Game Handler] Starting the game! Reseting all the internal states...");
 
-
+        //  yield return StartCoroutine(displayHandlingCards());
+        
         //Reset all internal states
 
         playedMatches = 0;
@@ -931,7 +1449,7 @@ public class Game_handler : MonoBehaviour
 
         for (int i=0; i<playerNamesOrdered.Count();i++ )
         {
-            print("Player position+ " + i +" - Name: " + playerNamesOrdered.ElementAt(i));
+            // print("Player position+ " + i +" - Name: " + playerNamesOrdered.ElementAt(i));
             PlayerGameState thisPlayer = new PlayerGameState(){
 
             name = playerNamesOrdered.ElementAt(i),
@@ -948,13 +1466,14 @@ public class Game_handler : MonoBehaviour
             playersGameState.Add(thisPlayer);            
         }
 
-        StartMatch(new int[] { 0, 0, 0, 0 }, new string[] { "", "", "", "" });
+        StartMatch(new Dictionary<string, int>(), new Dictionary<string, string>());
 
         UpdateScoreBoard();
         updatePlayersInformation();
 
         updateLog("System", "Game Started!");
-        yield return StartCoroutine(SendMessageUpperPanel("Game Started! "+ startingPlayer+" Starts playing!"));         
+                
+        yield return StartCoroutine(SendMessageUpperPanel("Game Started!"));         
 
     }
 
@@ -970,8 +1489,12 @@ public class Game_handler : MonoBehaviour
         logsPanel.SetActive(false);
         btn_back.SetActive(false);
         btn_skip.SetActive(false);
-
-
+        nextPlayerPanel.SetActive(false);
+        messagePanel.SetActive(false);
+        pizzaPanel.SetActive(false);
+        specialActionPanel.SetActive(false);
+        handlingCardsPanel.SetActive(false);
+        exchangeCardsPanel.SetActive(false);
 
         //Add all the positions of the cards at hand to the list
         spritesCardsInHand = new List<GameObject>
@@ -1016,7 +1539,6 @@ public class Game_handler : MonoBehaviour
             cardBoard.SetActive(false);
         }
 
-
         //Initialize elements of the player1 card board
         player1CardsBoard = new List<GameObject>
         {
@@ -1053,17 +1575,16 @@ public class Game_handler : MonoBehaviour
 
         player = PlayerObject.player;
 
-        messageText.SetText("Waiting for other players to connect...");
+        updateMessagePanel("Waiting....", "Waiting for the other players, hang in there!", false, false);
+
+        // messageText.SetText("Waiting for other players to connect...");
         updateLog("System", "Waiting for players...");
 
-        yield return new WaitForSeconds(3f);
+        yield return new WaitForSeconds(1);
 
         StartCoroutine(ReadPlayerQ());
 
     }
-
-
-
 
 
     // Update is called once per frame

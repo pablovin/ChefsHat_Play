@@ -1,5 +1,5 @@
 using System.Collections;
-using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 public class mainMenu : MonoBehaviour
@@ -21,12 +21,29 @@ public class mainMenu : MonoBehaviour
         
     // }
 
+
+    [SerializeField] AudioSource buttonSource;
     // Start is called before the first frame update
     public void StartGame()
     {
         Debug.Log("into the start game menu!");
-        SceneManager.LoadScene("start_game");
+        buttonSource.Play(0);
+        Debug.Log("Sound played, now loading the scene");        
+        StartCoroutine(DelaySceneLoad("start_game", 1));
     
+    }
+
+    IEnumerator DelaySceneLoad(string scene, int time)
+    {   
+        Debug.Log("Waiting to load the scene!");
+
+        yield return new WaitForSeconds(time);
+
+        Debug.Log("Loading scene!");
+        
+        SceneManager.LoadScene(scene);
+
+        
     }
 
     public void QuitGame()

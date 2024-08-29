@@ -1,13 +1,6 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
-using UnityEngine.UIElements;
-using UnityEditor.UI;
-using UnityEditor.PackageManager;
 using System.Threading.Tasks;
-using System.Linq.Expressions;
 using UnityEngine.SceneManagement;
 
 public class start_game_handler : MonoBehaviour
@@ -27,7 +20,14 @@ public class start_game_handler : MonoBehaviour
     //Message Panel
     [SerializeField] GameObject messagePanel;
     [SerializeField] TMP_Text messageText;
+    [SerializeField] TMP_Text messageTitle;
+    [SerializeField] GameObject messageImage;
     [SerializeField] UnityEngine.UI.Button messageBackButton;
+
+    //Audio
+
+    [SerializeField] AudioSource buttonSource;
+    [SerializeField] AudioSource errorSound;
 
     
     private void validateForm(string name, string roomURL, string roomPort)
@@ -66,7 +66,7 @@ public class start_game_handler : MonoBehaviour
 
             try{
                 string message = "Connecting to Room..." + roomURL+":"+roomPort;
-                OpenMessagePanel(message);
+                OpenMessagePanel(message,false, "Connecting...");
 
                 //Validating the form and converting data
                 validateForm(playerName, roomURL, roomPort);
@@ -85,26 +85,27 @@ public class start_game_handler : MonoBehaviour
                 SceneManager.LoadScene("Game");
                  
 
-
-
             }catch (System.Exception e)
             {
+                errorSound.Play(0);
                 Debug.Log("[Start Game Handler] Error! "+e.Message);
-                SendErrorMessage(e.Message);
+                SendErrorMessage(e.Message, "Problem!", true);
             }
     }
 
 
-    public void SendErrorMessage(string message)
+    public void SendErrorMessage(string message, string title, bool show_error_logo)
     {
-        OpenMessagePanel(message);
+        OpenMessagePanel(message,show_error_logo,title);
         messageBackButton.gameObject.SetActive(true);
     }
 
-    public void OpenMessagePanel(string message)
+    public void OpenMessagePanel(string message, bool show_error_logo, string title)
     {
                 
         messagePanel.SetActive(true);
+        messageImage.SetActive(show_error_logo);
+        messageTitle.SetText(title);
         messageText.SetText(message);
 
     }

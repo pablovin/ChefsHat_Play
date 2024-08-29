@@ -1,4 +1,4 @@
-using Unity.Burst;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CommunicationProtocol {
@@ -14,34 +14,56 @@ namespace CommunicationProtocol {
     public class StandardInfo : RoomMessage
     {
         public string type;
-        public bool actionIsRandom;
-        public bool validAction;
-        public int matches;
-        public int rounds;
-        public int[] score;
-        public float[] performanceScore;
-        public int thisPlayer;
-        public bool thisPlayerFinished;
-        public bool[] PlayersFinished;
-        public bool isPizzaReady;
 
-        public float[] boardBefore;
-        public float[] boardAfter;
-        public int[] board;
-        public int[] possibleActions;
+        public int Matches;
+        public int Rounds;
+        public string[] Player_Names;
+        public int Author_Index;
+        public string[] Author_Possible_Actions;
+        public float[] Observation_Before;
+        public float[] Observation_After;
+        public bool Action_Valid;
+        public bool Action_Random;
+        public int Action_Index;
+        public string Action_Decoded;
+        public bool Is_Pizza;
+        public int Pizza_Author;
+        public bool[] Finished_Players;
+        public int[] Cards_Per_Player;
+        public string[] Last_action_Per_Player;
+        public int Next_Player;
 
-        public float[] action;
-        public int thisPlayerPosition;
-        public string[] lastActionPlayers;
-        public string[] lastActionTypes;
+        public int[] Board_Before;
+        public int[] Board_After;
+        public string[] Current_Roles;
+        public int[] Match_Score;
+        public int[] Game_Score;
+        public float[] Game_Performance_Score;
+       
+        
+        // public int[] score;
+        // public float[] performanceScore;
+        // public int thisPlayer;
+        // public bool thisPlayerFinished;
+        // public bool[] PlayersFinished;
+        // public bool isPizzaReady;
 
-        public int[] RemainingCardsPerPlayer;
-        public string[] players;
+        // public float[] boardBefore;
+        // public float[] boardAfter;
+        // public int[] board;        
 
-        public string[] currentRoles;
-        public int currentPlayer;
+        // public float[] action;
+        // public int thisPlayerPosition;
+        // public string[] lastActionPlayers;
+        // public string[] lastActionTypes;
 
-        public string[] possibleActionsDecoded;
+        // public int[] RemainingCardsPerPlayer;
+
+
+        // public string[] currentRoles;
+        // public int currentPlayer;
+
+        // public string[] possibleActionsDecoded;
     }
 
 
@@ -60,8 +82,7 @@ namespace CommunicationProtocol {
     {
         public string type;
         public float[] observations;
-        public string[] possibleActionsDecoded;
-
+        public string[] possibleActionsDecoded;        
     }
 
     [System.Serializable]
@@ -75,6 +96,35 @@ namespace CommunicationProtocol {
     public class MatchOver : StandardInfo
     {       
 
+    }
+
+    [System.Serializable]
+    public class DoSpecialAction : RoomMessage
+    {       
+        public string special_action;
+        public string type;
+    }
+
+    [System.Serializable]
+    public class SpecialActionUpdate : RoomMessage
+    {       
+        public string special_action;
+        public int player;
+        public string type;
+    }
+
+    public class ExchangeCards : RoomMessage
+    {       
+        public int[] cards;
+        public int amount;
+        public string type;
+    }
+
+        public class UpdateExchangeCards : RoomMessage
+    {       
+        public int[] cards_sent;
+        public int[] cards_received;        
+        public string type;
     }
 
     [System.Serializable]
@@ -102,6 +152,7 @@ namespace CommunicationProtocol {
     {
         public string playerName;
         public string password;
+        public string author;
 
     }
 
@@ -112,5 +163,18 @@ namespace CommunicationProtocol {
 
     }
 
+    [System.Serializable]
+    public class SpecialAction : RoomMessage
+    {
+        public bool agent_action;       
+
+    }
+
+    [System.Serializable]
+    public class CardsExchanged : RoomMessage
+    {
+        public int[] agent_action;       
+
+    }
 
 }

@@ -18,6 +18,34 @@ static Sprite CARD_11 =  Resources.Load <Sprite>("cards/Card_11@4x");      //FUL
 static Sprite CARD_11_Golden =  Resources.Load <Sprite>("cards/Card_Golden_11@4x");      //FUL
 static Sprite CARD_JOKER =  Resources.Load <Sprite>("cards/Card_Joker@4x");      //FUL
 static Sprite CARD_PASS =  Resources.Load <Sprite>("cards/Card_Pass@4x");      //FUL
+static Sprite CARD_CHEF =  Resources.Load <Sprite>("cards/Card_Role_Chef@4x");      //FUL
+static Sprite CARD_SOUSCHEF =  Resources.Load <Sprite>("cards/Card_Role_Sous@4x");      //FUL
+static Sprite CARD_WAITER =  Resources.Load <Sprite>("cards/Card_Role_Wait@4x");      //FUL
+static Sprite CARD_DISHWASHER =  Resources.Load <Sprite>("cards/Card_Role_Dish@4x");      //FUL
+
+static Sprite CARD_DINNER_SERVED =  Resources.Load <Sprite>("cards/Card_Dinner@4x");      //FUL
+
+static Sprite CARD_FOOD_FIGHT =  Resources.Load <Sprite>("cards/Card_Fight@4x");      //FUL
+
+
+    public static Sprite GetSpecialActionCard(string specialAction)
+    {
+
+     if (specialAction=="Dinner served!")   {return CARD_DINNER_SERVED;}          
+     else {return CARD_FOOD_FIGHT;}
+    
+    }
+
+
+    public static Sprite GetRoleCard(string roleName)
+    {
+
+     if (PlayerObject.POSITIONS[0]==roleName)   {return CARD_CHEF;}
+     else if (PlayerObject.POSITIONS[1]==roleName)   {return CARD_SOUSCHEF;}
+     else if  (PlayerObject.POSITIONS[2]==roleName)  {return CARD_WAITER;}
+     else {return CARD_DISHWASHER;}
+    
+    }
 
     public static Sprite GetSprite(int cardNumber)
     {
