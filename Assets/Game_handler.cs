@@ -7,11 +7,8 @@ using System.Linq;
 using UnityEditor;
 using LoadLocalResources;
 using System;
-using UnityEngine.SocialPlatforms.Impl;
-using UnityEngine.UIElements;
-using UnityEditor.UI;
 using System.Text.RegularExpressions;
-using UnityEditor.MPE;
+
 public class PlayerGameState
 {
     public string name;
@@ -36,7 +33,7 @@ public class Game_handler : MonoBehaviour
     PlayerObject player;
     List<string> originalPlayersOrders;
 
-    List<PlayerGameState> playersGameState;
+    Dictionary<string, PlayerGameState> playersGameState;
 
     // Dictionary<string,int> score;
     // Start is called before the first frame update
@@ -438,9 +435,8 @@ public class Game_handler : MonoBehaviour
         else {
 
             
-
             //Check if the selected discard action is allowed
-            List<string> possibleActions = playersGameState[0].possibleActions;
+            List<string> possibleActions = playersGameState[player.Name].possibleActions;
 
             Debug.Log("Pssible actions: " + String.Join(", ", possibleActions));
 
@@ -498,11 +494,11 @@ public class Game_handler : MonoBehaviour
 
 
     /// Screen Update Functions
-    IEnumerator displayPizzaPanel(string player)
+    IEnumerator displayPizzaPanel(string name)
     {
         audioPizzaReady.Play(0);
         pizzaPanel.SetActive(true);        
-        textPizzaPanel.SetText(player+" Made a Pizza!");
+        textPizzaPanel.SetText(name+" Made a Pizza!");
         yield return new WaitForSeconds(3);
         pizzaPanel.SetActive(false);
         
@@ -611,7 +607,12 @@ public class Game_handler : MonoBehaviour
         scoreTxtCurrentPizzas.text = "Pizzas: "+donePizzas.ToString();
 
         //Updating the score board
-        List<PlayerGameState> sortedPlayers = playersGameState.OrderBy(o=>o.score).ToList();
+        // List<PlayerGameState> sortedPlayers = playersGameState.OrderBy(o=>o.score).ToList();
+
+        List<PlayerGameState> sortedPlayers = playersGameState
+            .Values
+            .OrderBy(player => player.score) // Order by score in ascending order
+            .ToList();
 
         scoreTxtPosition1Score.text=sortedPlayers.ElementAt(0).score.ToString();
         scoreTxtPosition1Name.text=sortedPlayers.ElementAt(0).name;
@@ -671,7 +672,7 @@ public class Game_handler : MonoBehaviour
 
     }
     
-    private void setActivePlayer(int activePlayer)
+    private void setActivePlayer(string activePlayer)
     {   
 
         StartCoroutine(SendMessageNextPlayer(playersGameState[activePlayer].name));   
@@ -681,93 +682,101 @@ public class Game_handler : MonoBehaviour
         imageActivePlayer4.SetActive(false);
 
 
-        if (activePlayer==0) imageActivePlayer1.SetActive(true);
-        if (activePlayer==1) imageActivePlayer2.SetActive(true);
-        if (activePlayer==2) imageActivePlayer3.SetActive(true);
-        if (activePlayer==3) imageActivePlayer4.SetActive(true);
+        if (playersGameState[activePlayer].position==0) imageActivePlayer1.SetActive(true);
+        if (playersGameState[activePlayer].position==1) imageActivePlayer2.SetActive(true);
+        if (playersGameState[activePlayer].position==2) imageActivePlayer3.SetActive(true);
+        if (playersGameState[activePlayer].position==3) imageActivePlayer4.SetActive(true);
 
         //Iterate over all positions, making them transparent. If the active player is that position, does not make it transparent.
 
-        //Position 1
-        if (activePlayer == playersGameState[0].position)
+        List<TMP_Text>  playerTxtNames = new List<TMP_Text>(){
+            playerTxtPlayer1Name,
+            playerTxtPlayer2Name,
+            playerTxtPlayer3Name,
+            playerTxtPlayer4Name
+        };
+
+        int count=0;
+        foreach (string name in playersGameState.Keys)
         {
-            playerTxtPlayer1Name.color = new Color(255, 218, 0, 255);            
+            if (activePlayer == name)
+            {
+                playerTxtNames[count].color = new Color(255, 218, 0, 255);
+            }
+            else{
+                playerTxtNames[count].color = new Color(255, 255, 255, 255);
+            }
+            count+=1;
+            
         }
-        else
-        {
-            playerTxtPlayer1Name.color = new Color(255, 255, 255, 255);
-        }
+        // //Position 1
+        // if (activePlayer ==player.Name)
+        // {
+        //     playerTxtPlayer1Name.color = new Color(255, 218, 0, 255);            
+        // }
+        // else
+        // {
+        //     playerTxtPlayer1Name.color = new Color(255, 255, 255, 255);
+        // }
         
         
-        
-        //foreach (GameObject cardPosition in player1CardsBoard)
-        //{
-        //    Color tmp = cardPosition.GetComponent<UnityEngine.UI.Image>().color;
-        //    if (activePlayer == playersGameState[0].position)
-        //    {
-        //        tmp.a = 1;
-        //    }
-        //    else { tmp.a = 0.2f; }
+                
 
-        //    cardPosition.GetComponent<UnityEngine.UI.Image>().color = tmp;
+        // ////Position 2
+        // if (activePlayer == playersGameState[1].position)
+        // {
+        //     playerTxtPlayer2Name.color = new Color(255, 218, 0, 255);
+        // }
+        // else
+        // {
+        //     playerTxtPlayer2Name.color = new Color(255, 255, 255, 255);
+        // }
 
-        //}
+        // //foreach (GameObject cardPosition in player2CardsBoard)
+        // //{
+        // //    Color tmp = cardPosition.GetComponent<UnityEngine.UI.Image>().color;
+        // //    if (activePlayer == playersGameState[0].position)
+        // //    {
+        // //        tmp.a = 1;
+        // //    }
+        // //    else { tmp.a = 0.2f; }
 
-        ////Position 2
-        if (activePlayer == playersGameState[1].position)
-        {
-            playerTxtPlayer2Name.color = new Color(255, 218, 0, 255);
-        }
-        else
-        {
-            playerTxtPlayer2Name.color = new Color(255, 255, 255, 255);
-        }
-
-        //foreach (GameObject cardPosition in player2CardsBoard)
-        //{
-        //    Color tmp = cardPosition.GetComponent<UnityEngine.UI.Image>().color;
-        //    if (activePlayer == playersGameState[0].position)
-        //    {
-        //        tmp.a = 1;
-        //    }
-        //    else { tmp.a = 0.2f; }
-
-        //    cardPosition.GetComponent<UnityEngine.UI.Image>().color = tmp;
-        //}
+        // //    cardPosition.GetComponent<UnityEngine.UI.Image>().color = tmp;
+        // //}
 
 
-        //Position 3
-        if (activePlayer == playersGameState[2].position)
-        {
-            playerTxtPlayer3Name.color = new Color(255, 218, 0, 255);
-        }
-        else
-        {
-            playerTxtPlayer3Name.color = new Color(255, 255, 255, 255);
-        }
+        // //Position 3
+        // if (activePlayer == playersGameState[2].position)
+        // {
+        //     playerTxtPlayer3Name.color = new Color(255, 218, 0, 255);
+        // }
+        // else
+        // {
+        //     playerTxtPlayer3Name.color = new Color(255, 255, 255, 255);
+        // }
 
-        //foreach (GameObject cardPosition in player3CardsBoard)
-        //{
-        //    Color tmp = cardPosition.GetComponent<UnityEngine.UI.Image>().color;
-        //    if (activePlayer == playersGameState[0].position)
-        //    {
-        //        tmp.a = 1;
-        //    }
-        //    else { tmp.a = 0.2f; }
+        // //foreach (GameObject cardPosition in player3CardsBoard)
+        // //{
+        // //    Color tmp = cardPosition.GetComponent<UnityEngine.UI.Image>().color;
+        // //    if (activePlayer == playersGameState[0].position)
+        // //    {
+        // //        tmp.a = 1;
+        // //    }
+        // //    else { tmp.a = 0.2f; }
 
-        //    cardPosition.GetComponent<UnityEngine.UI.Image>().color = tmp;
-        //}
+        // //    cardPosition.GetComponent<UnityEngine.UI.Image>().color = tmp;
+        // //}
 
 
-        //Position 4
-        if (activePlayer == playersGameState[3].position)
-        {
-            playerTxtPlayer4Name.color = new Color(255, 218, 0, 255);
-        }
-        else
-        {
-            playerTxtPlayer4Name.color = new Color(255, 255, 255, 255);
-        }
+        // //Position 4
+        // if (activePlayer == playersGameState[3].position)
+        // {
+        //     playerTxtPlayer4Name.color = new Color(255, 218, 0, 255);
+        // }
+        // else
+        // {
+        //     playerTxtPlayer4Name.color = new Color(255, 255, 255, 255);
+        // }
 
         //foreach (GameObject cardPosition in player4CardsBoard)
         //{
@@ -790,37 +799,69 @@ public class Game_handler : MonoBehaviour
     {
          
         //Update the information on the players fields
+        List<TMP_Text>  playerTxtNames = new List<TMP_Text>(){
+            playerTxtPlayer1Name,
+            playerTxtPlayer2Name,
+            playerTxtPlayer3Name,
+            playerTxtPlayer4Name
+        };
 
-        playerTxtPlayer1Name.text = playersGameState[0].name;
-        playerTxtPlayer1Cards.text = "Ingredients: " + playersGameState[0].cardsAtHand.ToString();
+        List<TMP_Text>  playerTxtCards = new List<TMP_Text>(){
+            playerTxtPlayer1Cards,
+            playerTxtPlayer2Cards,
+            playerTxtPlayer3Cards,
+            playerTxtPlayer4Cards
+        };
 
-        bool activePassPlayer1 = false;
-        if (playersGameState[0].passed) activePassPlayer1 = true;        
-        cardBoardPassPosition1.SetActive(activePassPlayer1);
-        Debug.Log("Card Pass player1: "+activePassPlayer1);
+        List<GameObject>  playerCardBoardPass = new List<GameObject>(){
+            cardBoardPassPosition1,
+            cardBoardPassPosition2,
+            cardBoardPassPosition3,
+            cardBoardPassPosition4
+        };        
 
-        playerTxtPlayer2Name.text = playersGameState[1].name;
-        playerTxtPlayer2Cards.text = "Ingredients: " + playersGameState[1].cardsAtHand.ToString();
-        bool activePassPlayer2 = false;
-        if (playersGameState[1].passed) activePassPlayer2 = true;
-        cardBoardPassPosition2.SetActive(activePassPlayer2);
-        Debug.Log("Card Pass player2: "+activePassPlayer2);
+        int count = 0;
+        foreach(string name in playersGameState.Keys)
+        {
+            playerTxtNames[count].text = name;
+            playerTxtCards[count].text = "Ingredients: " + playersGameState[name].cardsAtHand.ToString();
+            
+            playerCardBoardPass[count].SetActive( playersGameState[name].passed);
+            Debug.Log("Card Pass "+name + ": "+playersGameState[name].passed);
+            
+            count+=1;             
+
+        }
+
+        // playerTxtPlayer1Name.text = playersGameState[0].name;
+        // playerTxtPlayer1Cards.text = "Ingredients: " + playersGameState[0].cardsAtHand.ToString();
+        // bool activePassPlayer1 = false;
+        // if (playersGameState[0].passed) activePassPlayer1 = true;        
+        // cardBoardPassPosition1.SetActive(activePassPlayer1);
+        // Debug.Log("Card Pass player1: "+activePassPlayer1);
+
+        // playerTxtPlayer2Name.text = playersGameState[1].name;
+        // playerTxtPlayer2Cards.text = "Ingredients: " + playersGameState[1].cardsAtHand.ToString();
+        // bool activePassPlayer2 = false;
+        // if (playersGameState[1].passed) activePassPlayer2 = true;
+        // cardBoardPassPosition2.SetActive(activePassPlayer2);
+        // Debug.Log("Card Pass player2: "+activePassPlayer2);
 
 
-        playerTxtPlayer3Name.text = playersGameState[2].name;
-         playerTxtPlayer3Cards.text = "Ingredients: " + playersGameState[2].cardsAtHand.ToString();
-        bool activePassPlayer3 = false;
-        if (playersGameState[2].passed) activePassPlayer3 = true;
-        cardBoardPassPosition3.SetActive(activePassPlayer3);
-        Debug.Log("Card Pass player3: "+activePassPlayer3);
+        // playerTxtPlayer3Name.text = playersGameState[2].name;
+        //  playerTxtPlayer3Cards.text = "Ingredients: " + playersGameState[2].cardsAtHand.ToString();
+        // bool activePassPlayer3 = false;
+        // if (playersGameState[2].passed) activePassPlayer3 = true;
+        // cardBoardPassPosition3.SetActive(activePassPlayer3);
+        // Debug.Log("Card Pass player3: "+activePassPlayer3);
 
 
-        playerTxtPlayer4Name.text = playersGameState[3].name;
-        playerTxtPlayer4Cards.text = "Ingredients: " + playersGameState[3].cardsAtHand.ToString();
-        bool activePassPlayer4 = false;
-        if (playersGameState[3].passed) activePassPlayer4 = true;
-        cardBoardPassPosition4.SetActive(activePassPlayer4);
-        Debug.Log("Card Pass player4: "+activePassPlayer4);
+        // playerTxtPlayer4Name.text = playersGameState[3].name;
+        // playerTxtPlayer4Cards.text = "Ingredients: " + playersGameState[3].cardsAtHand.ToString();
+        // bool activePassPlayer4 = false;
+        // if (playersGameState[3].passed) activePassPlayer4 = true;
+        // cardBoardPassPosition4.SetActive(activePassPlayer4);
+        // Debug.Log("Card Pass player4: "+activePassPlayer4);
 
         Debug.Log("[Game Handler] Player info updated!");        
 
@@ -854,7 +895,7 @@ public class Game_handler : MonoBehaviour
             cardPass.SetActive(true);
         }
 
-        List<int> cardsInHand = playersGameState[0].cards;
+        List<int> cardsInHand = playersGameState[player.Name].cards;
 
         var positiveCardsInBoard = cardsInHand.Where(n => n > 0);
         
@@ -922,12 +963,13 @@ public class Game_handler : MonoBehaviour
                 
                 yield return StartCoroutine(StartGame(messageStartMessage.players, messageStartMessage.cards, messageStartMessage.starting_player));
 
-                int activePlayer = 0;
-                foreach(PlayerGameState player in playersGameState)
+                string activePlayer = "";
+                foreach(string name in playersGameState.Keys)
                 {
-                    if (player.name == messageStartMessage.starting_player)
+                    
+                    if (playersGameState[name].name == messageStartMessage.starting_player)
                         {
-                    activePlayer = player.position;
+                            activePlayer = playersGameState[name].name;
                     break;
                         }
                 }
@@ -943,10 +985,10 @@ public class Game_handler : MonoBehaviour
                 
                 Debug.Log("[Game Handler] Processing Update Others message based on the action of: "+ playerName);
 
-                string nextPlayer = originalPlayersOrders[messageUpdateOthers.Next_Player];
+                string nextPlayerName = originalPlayersOrders[messageUpdateOthers.Next_Player];
 
-                int playerIndex = playersGameState.FindIndex(p => p.name == playerName);
-                int nextPlayerIndex = playersGameState.FindIndex(p => p.name == nextPlayer);
+                // int playerIndex = playersGameState.FindIndex(p => p.name == playerName);
+                // int nextPlayerIndex = playersGameState.FindIndex(p => p.name == nextPlayer);
 
                 // Dictionary<string,int> scores = messageUpdateOthers.Game_Score;
                                 
@@ -963,8 +1005,8 @@ public class Game_handler : MonoBehaviour
                 // {
                 //     Debug.Log($"Player: {kvp.Key}, Cards Value: {kvp.Value}");
                 // }
-                playersGameState[playerIndex].passed = isPass;
-                playersGameState[playerIndex].cardsAtHand = messageUpdateOthers.Cards_Per_Player[messageUpdateOthers.Author_Index];
+                playersGameState[playerName].passed = isPass;
+                playersGameState[playerName].cardsAtHand = messageUpdateOthers.Cards_Per_Player[messageUpdateOthers.Author_Index];
 
                 // foreach (int boardBefore in messageUpdateOthers.Board_After)
                 // {
@@ -977,7 +1019,7 @@ public class Game_handler : MonoBehaviour
                 //     Debug.Log("Board After: " +boardBefore);
                 // }
                 
-                Debug.Log("Action from: "+playerIndex+" - Is PAss: " + isPass);
+                Debug.Log("Action from: "+playerName+" - Is PAss: " + isPass);
 
                 updatePlayersInformation();    
                 
@@ -996,7 +1038,7 @@ public class Game_handler : MonoBehaviour
 
                 // yield return new WaitForSeconds(1);
 
-                if (playersGameState[0].cardsAtHand == 0)                
+                if (playersGameState[player.Name].cardsAtHand == 0)                
                 {
                     btn_skip.SetActive(true);                    
                 }
@@ -1009,8 +1051,8 @@ public class Game_handler : MonoBehaviour
                     donePizzas+=1;
                     string pizzaAuthor = originalPlayersOrders[messageUpdateOthers.Pizza_Author];
                     
-                    foreach (PlayerGameState playerGameState in playersGameState) {
-                        playerGameState.passed = false;                        
+                    foreach (string name in playersGameState.Keys) {
+                        playersGameState[name].passed = false;                        
                     }
                     Debug.Log("[Game Handler] Player "+ pizzaAuthor + " Declared Pizza!");                    
                     updateLog(pizzaAuthor, "I Made a Pizza!");
@@ -1023,8 +1065,8 @@ public class Game_handler : MonoBehaviour
 
                 updatePlayersInformation();     
 
-                setActivePlayer(nextPlayerIndex);                       
-                updateLog("System", "Next player: " + nextPlayer);                
+                setActivePlayer(nextPlayerName);                       
+                updateLog("System", "Next player: " + nextPlayerName);                
                 yield return new WaitForSeconds(1);
 
         }
@@ -1042,9 +1084,9 @@ public class Game_handler : MonoBehaviour
                 //                 .Where(i => possibleActionsVector[i] == 1)
                 //                 .ToList();
 
-                playersGameState[0].cards = cardsInHand.ToList<int>();
-                playersGameState[0].cardsAtHand = cardsInHand.Count();
-                playersGameState[0].possibleActions = possibleActions.ToList<string>();
+                playersGameState[player.Name].cards = cardsInHand.ToList<int>();
+                playersGameState[player.Name].cardsAtHand = cardsInHand.Count();
+                playersGameState[player.Name].possibleActions = possibleActions.ToList<string>();
                 // playersGameState[0].possibleActionIndices = possibleActionIndices;
 
                 
@@ -1108,7 +1150,7 @@ public class Game_handler : MonoBehaviour
 
                     string messageText = "";
 
-                    string thisPlayerRole = current_roles[playersGameState[0].name];
+                    string thisPlayerRole = current_roles[playersGameState[player.Name].name];
 
                     if (thisPlayerRole == PlayerObject.POSITIONS[0] )
                     {
@@ -1165,7 +1207,7 @@ public class Game_handler : MonoBehaviour
 
             if (amount==1) sendTo ="Waiter";
             else sendTo="Dishwasher";
-            playersGameState[0].cards = cards.ToList<int>();            
+            playersGameState[player.Name].cards = cards.ToList<int>();            
 
             yield return StartCoroutine(OpenCardsPanel(false, false, true, "Select "+amount+" card(s) to send to the "+sendTo));         
 
@@ -1178,7 +1220,7 @@ public class Game_handler : MonoBehaviour
             int[] cards_received = messageMatchOver.cards_received;    
             int[] cards_sent = messageMatchOver.cards_sent;     
 
-            string playerRole = playersGameState[0].role;
+            string playerRole = playersGameState[player.Name].role;
 
             string message_exchangePanel = "Card Exchange! \n";
             if (playerRole == PlayerObject.POSITIONS[0])
@@ -1312,9 +1354,10 @@ public class Game_handler : MonoBehaviour
 
     public void UpdateScore(Dictionary<string,int> scores)
     {   
-        foreach (PlayerGameState player in playersGameState)
+
+        foreach (string name in scores.Keys)
         {
-            player.score = scores[player.name];
+            playersGameState[name].score = scores[name];       
         }
 
         // //Update the Gamestates
@@ -1331,7 +1374,12 @@ public class Game_handler : MonoBehaviour
 
     public void UpdateRoles(Dictionary<string,string> roles)
     {        
-        
+        string message = "";
+        foreach (string key in roles.Keys){
+            message+= key+" - "+roles[key]+", ";
+        }
+        Debug.Log(message);
+
         List<GameObject> spritesPosition = new List<GameObject>
         {
             cardBoardRolePosition1,
@@ -1340,12 +1388,15 @@ public class Game_handler : MonoBehaviour
             cardBoardRolePosition4
         };
 
-        foreach (PlayerGameState player in playersGameState)
+        int count=0;
+        foreach (string name in roles.Keys)
         {
-            player.role = roles[player.name];
+            playersGameState[name].role = roles[name];
 
-            spritesPosition[player.position].GetComponent<UnityEngine.UI.Image>().sprite = ResourceCards.GetRoleCard(player.role);
-            spritesPosition[player.position].SetActive(true);
+            spritesPosition[count].GetComponent<UnityEngine.UI.Image>().sprite = ResourceCards.GetRoleCard(roles[name]);
+            spritesPosition[count].SetActive(true);
+
+            count+=1;
         }
 
         //   //Update the Gamestates
@@ -1402,9 +1453,9 @@ public class Game_handler : MonoBehaviour
         UpdateRoles(current_roles);
         //Update the Gamestates
 
-        foreach( PlayerGameState player in playersGameState)
+        foreach( string name in playersGameState.Keys)
         {
-            player.cardsAtHand = 17;
+            playersGameState[name].cardsAtHand = 17;
         }
 
         // for (int indexServer = 0; indexServer < scores.Count(); indexServer++)
@@ -1419,12 +1470,7 @@ public class Game_handler : MonoBehaviour
         //Update the Scores        
         UpdateScoreBoard();
 
-        yield return StartCoroutine(SendMessageUpperPanel("Starting Match Number "+ currentMatch));
-
-        
-
-
-
+        yield return StartCoroutine(SendMessageUpperPanel("Starting Match Number "+ currentMatch));        
 
     }
 
@@ -1442,14 +1488,14 @@ public class Game_handler : MonoBehaviour
 
         originalPlayersOrders = playerNames.ToList<string>();
 
-        playersGameState = new List<PlayerGameState>();
+        playersGameState = new Dictionary<string, PlayerGameState>();
 
         List<string> playerNamesOrdered =  ReorderList(playerNames.ToList<string>(), player.Name);
         
 
         for (int i=0; i<playerNamesOrdered.Count();i++ )
         {
-            // print("Player position+ " + i +" - Name: " + playerNamesOrdered.ElementAt(i));
+            Debug.Log("Player position+ " + i +" - Name: " + playerNamesOrdered.ElementAt(i));
             PlayerGameState thisPlayer = new PlayerGameState(){
 
             name = playerNamesOrdered.ElementAt(i),
@@ -1463,8 +1509,11 @@ public class Game_handler : MonoBehaviour
             {
                 thisPlayer.cards = cardsInHand.ToList();
             }
-            playersGameState.Add(thisPlayer);            
+            playersGameState.Add(thisPlayer.name, thisPlayer);            
         }
+
+        foreach(string key in playersGameState.Keys) Debug.Log("Key: "+key+" - Player: "+playersGameState[key].name);
+
 
         StartMatch(new Dictionary<string, int>(), new Dictionary<string, string>());
 
