@@ -328,9 +328,14 @@ public class PlayerObject
         // IPEndPoint serverEndPoint = new IPEndPoint(ipAddress, port);
         
 
-        var ipAddress = Dns.GetHostEntry("localhost").AddressList;
+        var ipAddress = Dns.GetHostEntry(url).AddressList;
+        foreach (var ip in ipAddress)
+        {
+            Debug.Log(ip);
+        }
+        
 
-        IPEndPoint serverEndPoint = new(ipAddress[1], port);
+        IPEndPoint serverEndPoint = new(ipAddress[0], port);
 
 
         Socket = new Socket(serverEndPoint.AddressFamily,

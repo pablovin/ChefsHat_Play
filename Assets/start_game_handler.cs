@@ -64,7 +64,7 @@ public class start_game_handler : MonoBehaviour
         string roomPass = roomPassField.text;
 
 
-            try{
+            // try{
                 string message = "Connecting to Room..." + roomURL+":"+roomPort;
                 OpenMessagePanel(message,false, "Connecting...");
 
@@ -85,12 +85,12 @@ public class start_game_handler : MonoBehaviour
                 SceneManager.LoadScene("Game");
                  
 
-            }catch (System.Exception e)
-            {
-                errorSound.Play(0);
-                Debug.Log("[Start Game Handler] Error! "+e.Message);
-                SendErrorMessage(e.Message, "Problem!", true);
-            }
+            // }catch (System.Exception e)
+            // {
+            //     errorSound.Play(0);
+            //     Debug.Log("[Start Game Handler] Error! "+e.Message);
+            //     SendErrorMessage(e.Message, "Problem!", true);
+            // }
     }
 
 

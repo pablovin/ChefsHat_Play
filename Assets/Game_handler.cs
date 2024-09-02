@@ -1172,7 +1172,7 @@ public class Game_handler : MonoBehaviour
                     yield return StartMatch(acumulate_score, current_roles);                
                     yield return new WaitForSeconds(1);
 
-                    openCloseScore(false);                
+                    // openCloseScore(false);                
                     
                     updateLog("[System]", "New match!");          
                 }
@@ -1418,7 +1418,7 @@ public class Game_handler : MonoBehaviour
      IEnumerator EndMatch(Dictionary<string,int> acumulated_score,Dictionary<string,string> current_roles)
         {
         
-            openCloseScore(true);
+            // openCloseScore(true);
             UpdateScore(acumulated_score);
             UpdateRoles(current_roles);
             UpdateScoreBoard(); 
@@ -1534,7 +1534,7 @@ public class Game_handler : MonoBehaviour
 
         upperPanel.SetActive(false);
         cardsPanel.SetActive(false);
-        scorePanel.SetActive(false);
+        // scorePanel.SetActive(false);
         logsPanel.SetActive(false);
         btn_back.SetActive(false);
         btn_skip.SetActive(false);
