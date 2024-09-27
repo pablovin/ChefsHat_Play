@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using CommunicationProtocol;
 using System.Threading;
+using Unity.VisualScripting;
 
 public class PlayerObject
 {
@@ -329,13 +330,20 @@ public class PlayerObject
         
 
         var ipAddress = Dns.GetHostEntry(url).AddressList;
+        System.Net.IPAddress selectedIp = ipAddress[0];
+
         foreach (var ip in ipAddress)
         {
+            string ipString = ip.ToString();
             Debug.Log(ip);
+            if (ipString.ToString().Contains("."))
+            {
+                selectedIp = ip;
+            }
         }
         
 
-        IPEndPoint serverEndPoint = new(ipAddress[0], port);
+        IPEndPoint serverEndPoint = new(selectedIp, port);
 
 
         Socket = new Socket(serverEndPoint.AddressFamily,
